@@ -315,7 +315,7 @@ def render_progress():
     avg_pct = round(sum(h["score"] / h["total"] * 100 for h in hist) / len(hist))
     best_pct = round(max(h["score"] / h["total"] * 100 for h in hist))
     streak = get_streak(hist)
-    bonus_points = sum(1 for h in hist if round(h["score"] / h["total"] * 100) > 95)
+    bonus_points = sum(1 for h in hist if round(h["score"] / h["total"] * 100) >= 90)
 
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Days Practiced", unique_days)
@@ -387,7 +387,7 @@ def render_progress():
             icon = "🟡"
         else:
             icon = "🔴"
-        bonus = " ⭐ +1 bonus" if pct > 95 else ""
+        bonus = " ⭐ +1 bonus" if pct >= 90 else ""
         st.markdown(f"{icon} **{h['date']}** — {h['score']}/{h['total']} ({pct}%)  ⏱ {mins}m {secs}s{bonus}")
 
     # Clear data
