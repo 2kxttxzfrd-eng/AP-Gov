@@ -15,6 +15,15 @@ from question_bank import QUESTION_BANK
 QUESTIONS_PER_QUIZ = 25
 LETTERS = ["A", "B", "C", "D"]
 PROGRESS_FILE = "progress.json"
+UNIT_NAMES = {
+    "All Units": "All Units",
+    "Unit 1": "Foundations of American Democracy",
+    "Unit 2": "Interactions Among Branches",
+    "Unit 3": "Civil Liberties and Civil Rights",
+    "Unit 4": "American Political Ideologies and Beliefs",
+    "Unit 5": "Political Participation",
+}
+UNIT_OPTIONS = list(UNIT_NAMES.keys())
 
 
 # ──────────────────────────────────────────────
@@ -95,6 +104,8 @@ if "quiz_submitted" not in st.session_state:
     st.session_state.quiz_submitted = False
 if "start_time" not in st.session_state:
     st.session_state.start_time = None
+if "selected_unit" not in st.session_state:
+    st.session_state.selected_unit = "All Units"
 
 
 # ──────────────────────────────────────────────
@@ -106,7 +117,13 @@ def go_home():
     st.session_state.answers = {}
 
 def start_quiz():
-    questions = random.sample(QUESTION_BANK, QUESTIONS_PER_QUIZ)
+    unit = st.session_state.selected_unit
+    if unit == "All Units":
+        pool = QUESTION_BANK
+    else:
+        pool = [q for q in QUESTION_BANK if q["unit"] == unit]
+    count = min(QUESTIONS_PER_QUIZ, len(pool))
+    questions = random.sample(pool, count)
     st.session_state.quiz_questions = questions
     st.session_state.answers = {}
     st.session_state.quiz_submitted = False
@@ -138,6 +155,29 @@ def render_home():
         st.info(f"✅ Today's practice complete! Best score: **{best['score']}/{best['total']}** ({pct}%)")
 
     st.markdown("")
+    # Unit selector
+    st.markdown("#### 📚 Choose Your Practice")
+    unit_labels = [f"🌐 {k}" if k == "All Units" else f"📖 {k}: {UNIT_NAMES[k]}" for k in UNIT_OPTIONS]
+    selected_idx = UNIT_OPTIONS.index(st.session_state.selected_unit)
+    chosen = st.radio(
+        "Select a unit to practice:",
+        UNIT_OPTIONS,
+        index=selected_idx,
+        format_func=lambda k: f"🌐 {k}" if k == "All Units" else f"📖 {k}: {UNIT_NAMES[k]}",
+        key="unit_selector",
+        label_visibility="collapsed",
+    )
+    st.session_state.selected_unit = chosen
+
+    # Show pool size for selected unit
+    if chosen == "All Units":
+        pool_size = len(QUESTION_BANK)
+    else:
+        pool_size = sum(1 for q in QUESTION_BANK if q["unit"] == chosen)
+    quiz_count = min(QUESTIONS_PER_QUIZ, pool_size)
+    st.caption(f"📝 {quiz_count} questions will be drawn from {pool_size} available")
+
+    st.markdown("")
     col1, col2 = st.columns(2)
     with col1:
         label = "Practice Again" if today_done else "🚀 Start Today's Practice"
@@ -151,10 +191,16 @@ def render_home():
 # ──────────────────────────────────────────────
 def render_quiz():
     questions = st.session_state.quiz_questions
+    total_q = len(questions)
 
     if st.session_state.quiz_submitted:
         render_results()
         return
+
+    # Unit label
+    unit = st.session_state.selected_unit
+    unit_label = "All Units" if unit == "All Units" else f"{unit}: {UNIT_NAMES[unit]}"
+    st.markdown(f"**📚 Practicing: {unit_label}**")
 
     # Timer display
     if st.session_state.start_time:
@@ -164,7 +210,7 @@ def render_quiz():
 
     # Progress
     answered = sum(1 for q in questions if q["id"] in st.session_state.answers)
-    st.progress(answered / QUESTIONS_PER_QUIZ, text=f"Answered {answered} / {QUESTIONS_PER_QUIZ}")
+    st.progress(answered / total_q, text=f"Answered {answered} / {total_q}")
 
     # Render each question
     for i, q in enumerate(questions):
@@ -190,7 +236,7 @@ def render_quiz():
             st.divider()
 
     # Submit
-    unanswered = QUESTIONS_PER_QUIZ - len(st.session_state.answers)
+    unanswered = total_q - len(st.session_state.answers)
     col1, col2 = st.columns([1, 1])
     with col1:
         st.button("🏠 Back to Home", on_click=go_home, use_container_width=True)
@@ -207,6 +253,7 @@ def render_quiz():
 # ──────────────────────────────────────────────
 def render_results():
     questions = st.session_state.quiz_questions
+    total_q = len(questions)
     answers = st.session_state.answers
     elapsed = (datetime.now() - st.session_state.start_time).seconds if st.session_state.start_time else 0
 
@@ -229,18 +276,18 @@ def render_results():
     prog["history"].append({
         "date": today_key(),
         "score": score,
-        "total": QUESTIONS_PER_QUIZ,
+        "total": total_q,
         "time": elapsed,
         "unitStats": unit_stats,
     })
     save_progress(prog)
 
     # Display score
-    pct = round(score / QUESTIONS_PER_QUIZ * 100)
+    pct = round(score / total_q * 100)
     mins, secs = divmod(elapsed, 60)
 
     st.markdown("## 🎉 Practice Complete!")
-    st.markdown(f"<p class='big-score'>{score} / {QUESTIONS_PER_QUIZ}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p class='big-score'>{score} / {total_q}</p>", unsafe_allow_html=True)
     st.markdown(f"<p class='score-sub'>{pct}% · Time: {mins:02d}:{secs:02d}</p>", unsafe_allow_html=True)
     st.markdown("")
 
